@@ -1,9 +1,14 @@
+require("dotenv").config();
+
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const prisma = require("./prisma");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const COMMIT_SHA =
+  process.env.GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || "local";
 
 // Allowed status enum values according to Prisma schema
 const VALID_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
@@ -12,10 +17,23 @@ const VALID_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 // Middleware Configuration
 // ==========================================
 
-// Enable CORS so the React/Vite frontend (http://localhost:5173) can communicate with this API
+// Enable CORS for origins configured via CORS_ORIGIN, defaulting to local Vite
+const DEFAULT_CORS_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+const configuredCorsOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigins =
+  configuredCorsOrigins.length > 0
+    ? configuredCorsOrigins
+    : DEFAULT_CORS_ORIGINS;
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: corsOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -31,6 +49,11 @@ app.use(express.json());
 // Health / root endpoint
 app.get("/", (req, res) => {
   res.json({ message: "Lab 06/07 Tasks REST API is running." });
+});
+
+// Health check used by the hosting platform and deployment verification
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", commit: COMMIT_SHA });
 });
 
 /**
@@ -368,9 +391,20 @@ app.get("/users", async (req, res) => {
   }
 });
 
-// Start listening
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// In production, serve the built React client and fall back to index.html
+if (process.env.NODE_ENV === "production") {
+  const clientDist = path.join(__dirname, "..", "client", "dist");
+  app.use(express.static(clientDist));
+  app.get(/.*/, (req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
+
+// Only start listening when this file is run directly, so tests can import app
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
 
 module.exports = app;
