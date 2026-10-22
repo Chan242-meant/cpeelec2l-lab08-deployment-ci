@@ -1,10 +1,6 @@
 require("dotenv/config");
 
-const { PrismaClient } = require("@prisma/client");
-const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
-
-const adapter = new PrismaMariaDb(process.env.DATABASE_URL);
-const prisma = new PrismaClient({ adapter });
+const prisma = require("../src/prisma");
 
 async function main() {
   const user1 = await prisma.user.upsert({
