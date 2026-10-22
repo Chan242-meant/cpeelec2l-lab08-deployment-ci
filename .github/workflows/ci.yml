@@ -45,4 +45,5 @@ jobs:
           # Provide a dummy DATABASE_URL so dotenv/prisma don't error on load.
           # The real value is never committed; mocks replace all DB calls.
           DATABASE_URL: "mysql://ci:ci@localhost:3306/ci_dummy"
+          DATABASE_SSL: "false"
           NODE_ENV: test
